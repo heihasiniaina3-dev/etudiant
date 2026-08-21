@@ -6,7 +6,9 @@ export class EtudiantController {
 
   getAll = async (req: Request, res: Response) => {
     const students = await this.service.getAll();
-    res.json(students);
+    // Optionnel : masquer les mots de passe pour toute la liste
+    const studentsWithoutPassword = students.map(({ password, ...rest }) => rest);
+    res.json(studentsWithoutPassword);
   };
 
   getById = async (req: Request, res: Response) => {
@@ -16,12 +18,38 @@ export class EtudiantController {
       res.status(404).json({ message: "Not found" });
       return;
     }
-    res.json(student);
+    // Masquer le mot de passe
+    const { password, ...studentWithoutPassword } = student;
+    res.json(studentWithoutPassword);
   };
 
   create = async (req: Request, res: Response) => {
-    const student = await this.service.create(req.body);
-    res.status(201).json(student);
+    try {
+      const { email, password, role, ...rest } = req.body;
+
+      // 1. Vérifier si l'email existe déjà (suppose que votre service a une méthode pour chercher par email)
+        const existingStudent = await this.service.getByEmail(email);
+      if (existingStudent) {
+        res.status(400).json({ message: "Email déjà utilisé" });
+        return;
+      }
+
+      const newStudentData = {
+        email,
+        password, 
+        role: role || 'student', 
+        ...rest
+      };
+
+      const student = await this.service.create(newStudentData);
+
+      // 3. Masquer le mot de passe dans la réponse Postman
+      const { password: _, ...studentWithoutPassword } = student;
+      res.status(201).json(studentWithoutPassword);
+
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erreur serveur" });
+    }
   };
 
   delete = async (req: Request, res: Response) => {
